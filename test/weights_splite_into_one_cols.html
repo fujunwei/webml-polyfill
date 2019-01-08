@@ -1,0 +1,204 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>WebML Polyfill | Mocha Tests</title>
+  </head>
+  <body>
+    <div id="mocha"></div>
+    <div> <input type="button" onclick="predict()" value="button"></div>
+    <div> <input type="file"  id="inputData"></div>
+    <script src="./jquery.min.js"></script>
+    <!--script src="https://cdnjs.cloudflare.com/ajax/libs/mocha/4.0.1/mocha.min.js"></script-->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mocha/5.2.0/mocha.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chai/4.1.2/chai.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.3/fetch.min.js"></script>
+    <script src="../dist/webml-polyfill.js"></script>
+    <script src="./utils.js"></script>
+    <script>
+      window.onload = setOptions;
+    </script>
+    <script>
+      mocha.setup('bdd');
+    </script>
+    <!--script src="./cts/test/V1_0/avg_pool_float_2.js"></script-->
+    <!--script src="./cts/test/V1_0/resize_bilinear.js"></script-->
+    <!--script src="./cts/test/V1_0/conv_float.js"></script-->
+    <!--script src="./cts/test/V1_0/add.js"></script-->
+    <!--script src="./cts/test/V1_0_plus/depthwise_conv_relu.js"></script-->
+    <!--script src="./cts/test/V1_0/depthwise_conv2d_float_large_2.js"></script-->
+    <script>
+/*
+      window.mochaFinish = false;
+      mocha.globals(['jQuery']);
+      mocha.run(function() {window.mochaFinish = true});
+*/   
+
+var input_data, weights_data, bais_data, output_data, op3_output;
+function predict() {
+
+describe('CTS', function() {
+        const assert = chai.assert;
+  const nn = navigator.ml.getNeuralNetworkContext();
+
+  it('check result for Depthwise conv relu example-1', async function() {
+    let model = await nn.createModel(options);
+    let operandIndex = 0;
+
+    let weight_length = 5 * 1 * 528;
+    var new_weight_length = new Float32Array(weight_length);
+    for (var i = 0; i < weight_length; i++) {
+        new_weight_length[i] = weights_data[i];
+    }
+    weights_data = new_weight_length;
+    console.log(weights_data.length);
+
+    let op2_value = input_data;
+    let op3_expect = output_data;
+
+    let type0 = {type: nn.INT32};
+    let type2 = {type: nn.TENSOR_FLOAT32, dimensions: [1, 5, 1, 528]};
+    let type2_length = product(type2.dimensions);
+    let type1 = {type: nn.TENSOR_FLOAT32, dimensions: [1, 28, 28, 528]};
+    let type1_length = product(type1.dimensions);
+    let type3 = {type: nn.TENSOR_FLOAT32, dimensions: [528]};
+    let type3_length = product(type3.dimensions);
+    let type4 = {type: nn.TENSOR_FLOAT32, dimensions: [1, 28, 28, 528]};
+    let type4_length = product(type4.dimensions);
+
+    let b4 = operandIndex++;
+    model.addOperand(type0);
+    let b5 = operandIndex++;
+    model.addOperand(type0);
+    let b6 = operandIndex++;
+    model.addOperand(type0);
+    let b7 = operandIndex++;
+    model.addOperand(type0);
+    let b8 = operandIndex++;
+    model.addOperand(type0);
+    let op2 = operandIndex++;
+    model.addOperand(type1);
+    let op3 = operandIndex++;
+    model.addOperand(type4);
+    let op0 = operandIndex++;
+    model.addOperand(type2);
+    let op1 = operandIndex++;
+    model.addOperand(type3);
+
+    model.setOperandValue(b4, new Int32Array([1]));
+    model.setOperandValue(b5, new Int32Array([1]));
+    model.setOperandValue(b6, new Int32Array([1]));
+    model.setOperandValue(b7, new Int32Array([1]));
+    model.setOperandValue(b8, new Int32Array([0]));
+    // var new_weights_data = new Float32Array(bais_data);
+    // var filter_height = 5, filter_width = 5, depth_out = 528;
+    // for (var h = 0; h < filter_height; h++) {
+    //   for (var w = 0; w < filter_width; w++) {
+    //     for (var c = 0; c < depth_out; c++) {
+    //       new_weights_data[c * filter_height * filter_width +
+    //                         h * filter_width + w] =
+    //           weights_data[h * filter_width * depth_out + w * depth_out + c];
+    //     }
+    //   }
+    // }
+    model.setOperandValue(op0, new Float32Array(weights_data));
+    model.setOperandValue(op1, new Float32Array(bais_data));
+    model.addOperation(nn.DEPTHWISE_CONV_2D, [op2, op0, op1, b4, b5, b6, b7, b8], [op3]);
+
+    model.identifyInputsAndOutputs([op2], [op3]);
+    await model.finish();
+
+    let compilation = await model.createCompilation();
+    compilation.setPreference(prefer);
+    await compilation.finish();
+
+    let execution = await compilation.createExecution();
+
+    let op2_input = new Float32Array(op2_value);
+    execution.setInput(0, op2_input);
+
+    op3_output = new Float32Array(type4_length);
+    execution.setOutput(0, op3_output);
+
+    await execution.startCompute();
+
+    for (let i = 0; i < type4_length; ++i) {
+      if(!almostEqualCTS(op3_output[i], op3_expect[i])) {
+        console.log("op3_output " + op3_output[i] + " op3_expect " + op3_expect[i]);
+        break;
+      }
+    }
+    
+    let sum = 0;
+      for (let i = 0; i < type4_length; i++) {
+        sum += Math.pow(op3_output[i] - op3_expect[i], 2);
+      }
+      console.log(`var: ${sum / type4_length}`);
+});
+});
+
+
+
+window.mochaFinish = false;
+      mocha.globals(['jQuery']);
+      mocha.run(function() {window.mochaFinish = true});
+}
+
+
+var i = 0;
+// <textarea id="textarea" rows=100 cols=100>
+// var textarea = document.getElementById("textarea")
+// textarea.value=
+var textarea = document.createElement("textarea");
+document.getElementById("mocha").appendChild(textarea);
+textarea.rows=100
+textarea.cols=100
+inputData.addEventListener('change', function(e) {
+            var file = inputData.files[0];
+            var textType = /text.*/;
+
+            if (file.type.match(textType)) {
+                var reader = new FileReader();
+
+                reader.onload = function(e) {
+                    var text = reader.result;
+                    var arr = text.split(",");
+                    var file_data = new Float32Array(arr.length);
+                    for(j in arr) {
+                       var b = parseFloat(arr[j]);
+                       file_data[j] = b;
+                    }
+                  
+                   // new_float_array = new Float32Array(origin_float_array);
+                   // var width = 513, height = 513, depth = 21;
+                   // for (var c = 0; c < depth; c++) {
+                   //   for (var h = 0; h < height; h++) {
+                   //     for (var w = 0; w < width; w++) {
+                   //       new_float_array[c +
+                   //                         h * width * depth + w * depth] =
+                   //       origin_float_array[c * width * height + h * width + w];
+                   //     }
+                   //   }
+                   // }
+
+                   if (i == 0) {
+                      input_data = file_data;
+                    } else if (i == 1) {
+                        weights_data = file_data;
+                    } else if (i == 2) {
+                        bais_data = file_data;
+                    } else if (i == 3) {
+                        output_data = file_data;
+                    }
+                    i++;
+                   console.log(file_data.length);
+                }
+
+                reader.readAsText(file);    
+            } else {
+                fileDisplayArea.innerText = "File not supported!"
+            }
+        });
+    </script>
+  </body>
+</html>
+

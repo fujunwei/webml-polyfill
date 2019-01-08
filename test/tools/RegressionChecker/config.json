@@ -1,4 +1,4 @@
 {
     "platform": "Linux",
-    "chromiumPath": "/usr/bin/chromium-browser-unstable"
+    "chromiumPath": "/Users/mac-webgl-stable/workspace/junwei/webML/src/out/Debug/Chromium.app/Contents/MacOS/Chromium"
 }
