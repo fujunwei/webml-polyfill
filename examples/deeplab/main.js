@@ -40,10 +40,10 @@ const preferMap = {
 function main(camera) {
 
   const availableModels = [
+    deeplab224,
     deeplab224dilated,
     deeplab513dilated,
     deeplab513,
-    deeplab224,
   ];
   const videoElement = document.getElementById('video');
   const imageElement = document.getElementById('image');
@@ -58,6 +58,7 @@ function main(camera) {
   const webml = document.getElementById('webml');
   const zoomSlider = document.getElementById('zoomSlider');
   const blurSlider = document.getElementById('blurSlider');
+  const refineEdgeSlider = document.getElementById('refineEdgeSlider');
   const colorMapAlphaSlider = document.getElementById('colorMapAlphaSlider');
   const outputCanvas = document.getElementById('output');
   const preprocessCanvas = document.createElement('canvas');
@@ -119,10 +120,20 @@ function main(camera) {
   blurSlider.value = renderer.blurRadius;
   $('.blur-radius-value').html(renderer.blurRadius + 'px');
   blurSlider.oninput = () => {
-    let blurRadius = blurSlider.value;
+    let blurRadius = parseInt(blurSlider.value);
     $('.blur-radius-value').html(blurRadius + 'px');
     renderer.blurRadius = blurRadius;
   };
+
+  refineEdgeSlider.value = renderer.refineEdgeRadius;
+  $('.refine-edge-value').html(renderer.refineEdgeRadius + 'px');
+  refineEdgeSlider.oninput = () => {
+    let refineEdgeRadius = parseInt(refineEdgeSlider.value);
+    $('.refine-edge-value').html(refineEdgeRadius + 'px');
+    renderer.refineEdgeRadius = refineEdgeRadius;
+  };
+
+  
 
   $('.effects-select .btn input').filter(function() {
     return this.value === renderer.effect;
@@ -311,20 +322,20 @@ function main(camera) {
 
     return utils.predict(preprocessCanvas).then(result => {
 
-      let inferTime = result.time;
-      console.log(`Inference time: ${inferTime.toFixed(2)} ms`);
-      inferenceTime.innerHTML = `inference time: <em style="color:green;font-weight:bloder">${inferTime.toFixed(2)} </em>ms`;
+      // let inferTime = result.time;
+      // console.log(`Inference time: ${inferTime.toFixed(2)} ms`);
+      // inferenceTime.innerHTML = `inference time: <em style="color:green;font-weight:bloder">${inferTime.toFixed(2)} </em>ms`;
 
-      renderer.drawOutputs(result.segMap).then((drawTime) => {
-        inferTimeAcc += inferTime;
-        drawTimeAcc += drawTime;
-        if (++counter === counterN) {
-          console.debug(`(${counterN} frames) Infer time: ${(inferTimeAcc / counterN).toFixed(2)} ms`);
-          console.debug(`(${counterN} frames) Draw time: ${(drawTimeAcc / counterN).toFixed(2)} ms`);
-          counter = inferTimeAcc = drawTimeAcc = 0;
-        }
-      });
-      renderer.highlightHoverLabel(hoverPos);
+      // renderer.drawOutputs(result.segMap).then((drawTime) => {
+      //   inferTimeAcc += inferTime;
+      //   drawTimeAcc += drawTime;
+      //   if (++counter === counterN) {
+      //     console.debug(`(${counterN} frames) Infer time: ${(inferTimeAcc / counterN).toFixed(2)} ms`);
+      //     console.debug(`(${counterN} frames) Draw time: ${(drawTimeAcc / counterN).toFixed(2)} ms`);
+      //     counter = inferTimeAcc = drawTimeAcc = 0;
+      //   }
+      // });
+      // renderer.highlightHoverLabel(hoverPos);
     });
   }
 

@@ -78,7 +78,58 @@ class TFliteModelImporter {
         let raw = buffer.dataArray();
         let data = new typedArray(raw.buffer, raw.byteOffset, raw.byteLength / typedArray.BYTES_PER_ELEMENT);
         this._setOperandValue(tensorId, data);
+        if (tensorId == 137) {
+          //console.debug(data);
+        } else if (tensorId == 136) {
+          //console.debug(data);
+        }
       }
+    }
+  }
+
+  async * layerIterator(inputTensor) {
+    let graph = this._rawModel.subgraphs(0);
+    let operatorsLength = graph.operatorsLength();
+    // for (let lastNode = 0; lastNode < graph.node.length; lastNode++) {
+    for (let lastNode = 0; lastNode < operatorsLength; ++lastNode) {
+//      if (lastNode == 28) break;
+
+      this._tensorIds = [];
+      this._operands = [];
+      this._operandIndex = 0;
+      if (this._backend !== 'WebML' && this._compilation)
+        this._compilation._preparedModel._deleteAll();
+
+      let options = {};
+      options.backend = this._backend;
+      this._model = await this._nn.createModel(options);
+      this._addTensorOperands();
+      lastNode = this._addOpsAndParams(lastNode);
+
+      let operator = graph.operators(lastNode);
+      let opcodeName;
+      let opCode = this._rawModel.operatorCodes(operator.opcodeIndex()).builtinCode();
+      for (let k in tflite.BuiltinOperator) {
+        if (tflite.BuiltinOperator[k] === opCode) {
+          opcodeName = k;
+        }
+      }
+
+      // let outputName = graph.node[lastNode].output[0];
+      let inputs = Array.from(graph.operators(0).inputsArray());
+      let outputs = Array.from(operator.outputsArray());
+      this._model.identifyInputsAndOutputs(inputs, outputs);
+
+      await this._model.finish();
+      this._compilation = await this._model.createCompilation();
+      this._compilation.setPreference(getPrefer(this._backend));
+      await this._compilation.finish();
+      this._execution = await this._compilation.createExecution();
+
+      const outputType = this._operandTypes[outputs[0]]
+      let outputTensor = new Float32Array(outputType.dimensions.reduce((a,b)=>a*b));  
+      await this.compute(inputTensor, outputTensor);
+      yield {outputName: opcodeName, tensor: outputTensor};
     }
   }
 
@@ -126,7 +177,7 @@ class TFliteModelImporter {
     }, new Float32Array(tensor));
   }
 
-  _addOpsAndParams() {
+  _addOpsAndParams(lastNode) {
     const PaddingCodeMap = new Map([
       [tflite.Padding.SAME, this._nn.PADDING_SAME],
       [tflite.Padding.VALID, this._nn.PADDING_VALID]
@@ -141,12 +192,13 @@ class TFliteModelImporter {
 
     let graph = this._rawModel.subgraphs(0);
     let operatorsLength = graph.operatorsLength();
-    for (let i = 0; i < operatorsLength; ++i) {
+    let i = 0;
+    for (; i <= lastNode; ++i) {
       let operator = graph.operators(i);
       let opCode = this._rawModel.operatorCodes(operator.opcodeIndex()).builtinCode();
       let opType;
-      let inputs = Array.from(operator.inputsArray());
-      let outputs = Array.from(operator.outputsArray());
+      let inputs = Array.from(operator.inputsArray()).map(i => this._tensorIds[i]);
+      let outputs = Array.from(operator.outputsArray()).map(i => this._tensorIds[i]);
       switch (opCode) {
         case tflite.BuiltinOperator.ADD: {
           let options = operator.builtinOptions(new tflite.AddOptions());
@@ -174,6 +226,13 @@ class TFliteModelImporter {
           opType = this._nn.CONV_2D;
         } break;
         case tflite.BuiltinOperator.DEPTHWISE_CONV_2D: {
+	  /*let inShape = graph.tensors(inputs[0]).shapeArray();
+	  let outShape = graph.tensors(outputs[0]).shapeArray();
+	  if (inShape[0] == outShape[0] && inShape[1] == outShape[1] && inShape[2] == outShape[2] && inShape[3] == outShape[3]) {
+
+	  	this._tensorIds[outputs[0]] = this._tensorIds[inputs[0]];
+		continue;
+	  }*/
           let options = operator.builtinOptions(new tflite.DepthwiseConv2DOptions());
           let paddingCode = PaddingCodeMap.get(options.padding());
           if (typeof paddingCode === 'undefined') {
@@ -188,6 +247,10 @@ class TFliteModelImporter {
             throw new Error(`Fuse code ${options.fusedActivationFunction()} is not supported.`);
           }
           inputs.push(this._addScalarInt32(fuseCode));
+          if (options.dilationWFactor() !== 1 || options.dilationWFactor() !== 1) {
+            inputs.push(this._addScalarInt32(options.dilationWFactor()));
+            inputs.push(this._addScalarInt32(options.dilationHFactor()));
+          }
           opType = this._nn.DEPTHWISE_CONV_2D;
         } break;
         case tflite.BuiltinOperator.AVERAGE_POOL_2D: {
@@ -374,5 +437,6 @@ class TFliteModelImporter {
 
       this._model.addOperation(opType, inputs, outputs);
     }
+    return i-1;
   }
 }

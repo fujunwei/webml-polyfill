@@ -12,12 +12,14 @@ class Utils {
     this.outputSize;
     this.preOptions;
     this.postOptions;
+    this.prefer;
 
     this.initialized = false;
   }
 
   async init(backend, prefer) {
     this.initialized = false;
+    this.prefer = prefer;
     let result;
     if (!this.tfModel) {
       result = await this.loadModelAndLabels(this.modelFile, this.labelsFile);
@@ -43,21 +45,74 @@ class Utils {
     this.initialized = true;
   }
 
+  almostEqual(a, b, episilon=0.05) {
+    return Math.abs(a - b) < episilon;
+  }
+
   async predict(canvas) {
     if (!this.initialized) return;
     this.prepareInputTensor(this.inputTensor, canvas);
-    this.outputTensor = new Float32Array(this.outputSize.reduce((x,y) => x*y));
-    let start = performance.now();
-    let result = await this.model.compute(this.inputTensor, this.outputTensor);
-    let elapsed = performance.now() - start;
-    return {
-      time: elapsed,
-      segMap: {
-        data: this.outputTensor,
-        outputShape: this.outputSize,
-        labels: this.labels,
-      },
-    };
+
+    let glGen = new TFliteModelImporter({
+      rawModel: this.tfModel,
+      backend: 'WebGL',
+      prefer: this.prefer,
+    }).layerIterator(this.inputTensor);
+
+    let mlGen = new TFliteModelImporter({
+      rawModel: this.tfModel,
+      backend: 'WebML',
+      prefer: this.prefer,
+    }).layerIterator(this.inputTensor);
+
+    while (true) {
+      let glnext = await glGen.next();
+      let mlnext = await mlGen.next();
+
+      if (glnext.done)
+        break;
+
+      console.debug(`\n\n${glnext.value.outputName}`);
+
+      // console.debug('\nWASM:');
+      // console.debug(wasmnext.value.tensor);
+
+      console.debug('\nGL:');
+      console.debug(glnext.value.tensor);
+
+      console.debug('\nML:');
+      console.debug(mlnext.value.tensor);
+
+
+      let sum = 0;
+      for (let i = 0; i < glnext.value.tensor.length; i++) {
+	sum += Math.pow(glnext.value.tensor[i] - mlnext.value.tensor[i], 2);
+      }
+      console.debug(`var: ${sum / glnext.value.tensor.length}`);
+      //for (let i = 0; i < glnext.value.tensor.length; i++) {
+      //  if (!this.almostEqual(glnext.value.tensor[i], mlnext.value.tensor[i])) {
+      //    console.debug(`Inconsistent at index ${i}, ${glnext.value.tensor[i]}, ${mlnext.value.tensor[i]}`);
+      //    break;
+      //}
+      //}
+    }
+
+
+
+    // let mlGen = new OnnxModelImporter(onnxModel, 'WebML').layerIterator(input);
+
+    // this.outputTensor = new Float32Array(this.outputSize.reduce((x,y) => x*y));
+    // let start = performance.now();
+    // let result = await this.model.compute(this.inputTensor, this.outputTensor);
+    // let elapsed = performance.now() - start;
+    // return {
+    //   time: elapsed,
+    //   segMap: {
+    //     data: this.outputTensor,
+    //     outputShape: this.outputSize,
+    //     labels: this.labels,
+    //   },
+    // };
   }
 
   async loadModelAndLabels(modelUrl, labelsUrl) {

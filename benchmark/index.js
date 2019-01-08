@@ -5,8 +5,8 @@ const MODEL_DIC = {
     height: 224,
     inputTensorSize: 224 * 224 * 3,
     outputTensorSize: 1001,
-    modelFile: '../examples/mobilenet/model/mobilenet_v1_1.0_224.tflite',
-    labelFile: '../examples/mobilenet/model/labels.txt'
+    modelFile: '../examples/image_classification/model/mobilenet_v2_1.0_224.tflite',
+    labelFile: '../examples/image_classification/model/labels1001.txt'
   },
   squeezenet: {
     width: 224,
@@ -370,9 +370,15 @@ class WebMLJSBenchmark extends Benchmark {
       let flatBuffer = new flatbuffers.ByteBuffer(resultMN.bytes);
       targetModel = tflite.Model.getRootAsModel(flatBuffer);
       if (this.configuration.backend !== 'native') {
-        this.model = new MobileNet(targetModel, this.configuration.backend);
+        let kwargs = {
+          rawModel: targetModel,
+          backend: this.configuration.backend,
+          prefer: '',
+          softmax: false,
+        };
+        this.model = new TFliteModelImporter(kwargs);
       } else {
-        this.model = new MobileNet(targetModel);
+        this.model = new TFliteModelImporter(targetModel);
       }
     } else if (this.configuration.modelName === 'ssdmobilenet') {
       let resultSSDMN = await this.loadModelAndLabels();

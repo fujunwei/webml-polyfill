@@ -62,8 +62,8 @@
               <canvas id="poseCanvas"></canvas>
               <canvas id="poseCanvasPredict" width="513" height="513"></canvas>
               <canvas id="canvas"></canvas>
-              <img id="image" crossorigin="anonymous" class="img-fluid" alt="Responsive image" src="../examples/mobilenet/img/bee_eater.jpg">
-              <img id="mobileImage" hidden crossorigin="anonymous" class="img-fluid" alt="Responsive image" src="../examples/mobilenet/img/bee_eater.jpg">
+              <img id="image" crossorigin="anonymous" class="img-fluid" alt="Responsive image" src="../examples/image_classification/img/bee_eater.jpg">
+              <img id="mobileImage" hidden crossorigin="anonymous" class="img-fluid" alt="Responsive image" src="../examples/image_classification/img/bee_eater.jpg">
               <img id="poseImage" hidden  crossorigin="anonymous" class="img-fluid" alt="Responsive image" src="../examples/posenet/download.png">
               <img id="ssdMobileImage" hidden crossorigin="anonymous" class="img-fluid" alt="Responsive image" src="../examples/ssd_mobilenet/img/image1.jpg">
             </div>
@@ -90,14 +90,14 @@
     </div>
     <script src="../dist/webml-polyfill.js"></script>
     <script src="../examples/util/base.js"></script>
-    <script src="../examples/mobilenet/flatbuffers/js/flatbuffers.js"></script>
-    <script src="../examples/mobilenet/schema/schema_generated.js"></script>
-    <script src="../examples/mobilenet/TfLiteModelUtils.js"></script>
-    <script src="../examples/mobilenet/MobileNet.js"></script>
+    <script src="../examples/util/tflite/flatbuffers/js/flatbuffers.js"></script>
+    <script src="../examples/util/tflite/schema/schema_generated.js"></script>
+    <script src="../examples/util/tflite/TfLiteModelUtils.js"></script>
+    <script src="../examples/util/tflite/TFliteModelImporter.js"></script>
     <script src="../examples/third_party/protobuf.min.js"></script>
-    <script src="../examples/squeezenet/onnx.js"></script>
-    <script src="../examples/squeezenet/OnnxModelUtils.js"></script>
-    <script src="../examples/squeezenet/SqueezeNet.js"></script>
+    <script src="../examples/util/onnx/onnx.js"></script>
+    <script src="../examples/util/onnx/OnnxModelUtils.js"></script>
+    <script src="../examples/util/onnx/SqueezeNet.js"></script>
     <script src="../examples/posenet/src/decodePose.js"></script>
     <script src="../examples/posenet/src/helperFunc.js"></script>
     <script src="../examples/posenet/utils.js"></script>

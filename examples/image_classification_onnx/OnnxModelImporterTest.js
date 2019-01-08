@@ -1,17 +1,22 @@
 class OnnxModelImporter {
-  constructor(kwargs) {
-    this._rawModel = kwargs.rawModel;
+  constructor(rawModel, backend, modelOptions) {
+    this._rawModel = rawModel;
     this._model = null;
     this._compilation;
     this._execution;
     this._tensorIds = [];
     this._operands = [];
-    this._options = {
-      softmax: kwargs.softmax, 
-    };
+    this._options = modelOptions || {};
     this._operandIndex = 0;
-    this._backend = kwargs.backend;
-    this._prefer = kwargs.prefer
+    if (typeof backend !== 'undefined') {
+      this._backend = backend;
+    } else {
+      if (nnNative && getPreferParam() !== 'invalid') {
+        this._backend = 'WebML';
+      } else {
+        this._backend = 'WASM';
+      }
+    }
     if (this._backend === 'WebML') {
       if (nnNative === null) {
         throw Error('Fails to initialize neural network context');
@@ -29,10 +34,11 @@ class OnnxModelImporter {
 
     this._addTensorOperands();
     this._addOpsAndParams();
+    this._addInputsOutputs();
 
     await this._model.finish();
     this._compilation = await this._model.createCompilation();
-    this._compilation.setPreference(getPreferCode(this._backend, this._prefer));
+    this._compilation.setPreference(getPrefer(this._backend));
     await this._compilation.finish();
     this._execution = await this._compilation.createExecution();
   }
@@ -46,6 +52,38 @@ class OnnxModelImporter {
       return error;
     }
     return 'success';
+  }
+
+  async * layerIterator(inputTensor) {
+    const graph = this._rawModel.graph;
+    for (let lastNode = 0; lastNode < graph.node.length; lastNode++) {
+      this._tensorIds = [];
+      this._operands = [];
+      this._operandIndex = 0;
+      if (this._backend !== 'WebML' && this._compilation)
+        this._compilation._preparedModel._deleteAll();
+
+      let options = {};
+      options.backend = this._backend;
+      this._model = await this._nn.createModel(options);
+      this._addTensorOperands();
+      lastNode = this._addOpsAndParams(lastNode);
+
+      let outputName = graph.node[lastNode].output[0];
+      let inputs = [this._getTensorIdByName(graph.node[0].input[0])];
+      let outputs = [this._getTensorIdByName(outputName)];
+      this._model.identifyInputsAndOutputs(inputs, outputs);
+
+      await this._model.finish();
+      this._compilation = await this._model.createCompilation();
+      this._compilation.setPreference(getPrefer(this._backend));
+      await this._compilation.finish();
+      this._execution = await this._compilation.createExecution();
+
+      let outputTensor = new Float32Array(product(this._getTensorTypeByName(outputName).dimensions));  
+      await this.compute(inputTensor, outputTensor);
+      yield {outputName: outputName, tensor: outputTensor};
+    }
   }
 
   _getOperandValue(id) {
@@ -84,6 +122,16 @@ class OnnxModelImporter {
     for (let i = 0; i < graph.output.length; ++i) {
       this._addTensorByValueInfo(graph.output[i]);
     }
+  }
+
+  _addInputsOutputs() {
+    const graph = this._rawModel.graph;
+    let inputs = [this._getTensorIdByName(graph.node[0].input[0])];
+    let outputs = [this._getTensorIdByName(graph.output[0].name)];
+    if (this._options.softmax &&
+        graph.node[graph.node.length-1].opType !== 'Softmax')
+      outputs = [this._getTensorIdByName('softmax_appended')];
+    this._model.identifyInputsAndOutputs(inputs, outputs);
   }
 
   _addTensorByValueInfo(valueInfo, unsqueezeAxes) {
@@ -190,9 +238,10 @@ class OnnxModelImporter {
     return info.type;
   }
 
-  _addOpsAndParams() {
+  _addOpsAndParams(lastNode) {
     const graph = this._rawModel.graph;
-    for (let i = 0; i < graph.node.length; ++i) {
+    let i;
+    for (i = 0; i <= lastNode; ++i) {
       let node = graph.node[i];
       console.log(`opType: ${node.opType}`);
       let opCode;
@@ -273,7 +322,7 @@ class OnnxModelImporter {
               for (let p = c * nPixels; p < (c+1) * nPixels; p++)
                 convFilterTensor[p] *= w;
             }
-
+            
             i++;
             node = bnNode;
             console.log(`  fuse batch norm: ${nextNode.output[0]} -> ${output}`);
@@ -754,39 +803,8 @@ class OnnxModelImporter {
       if (typeof opCode === 'undefined')
         continue;
 
-      if (i === graph.node.length - 1) { 
-
-        // redirect the output of the last node to the existing tensor bound to
-        // the node in the graph, i.e. output tensor given by the user
-        outputs = graph.output.map(n => this._getTensorIdByName(n.name));
-
-        if (this._options.softmax && node.opType !== 'Softmax') {
-          this._model.addOperation(opCode, inputs, outputs);
-
-          console.log(`opType: Softmax (appended automatically)`);
-          console.log(`  inputs: [${node.output[0]}]`);
-          // Add inputs
-          inputs = [];
-          inputs.push(outputs[0]);
-          // Set beta to 1.0
-          inputs.push(this._addScalarFloat32(1.0));
-
-          // Add outputs
-          outputs = [];
-          const inputType = this._getTensorTypeByName(node.output[0]);
-          const outputType = {type: this._nn.TENSOR_FLOAT32, dimensions: inputType.dimensions};
-          const outputId = this._addNewTensorOperand('softmax_appended', outputType);
-          outputs.push(outputId);
-
-          opCode = this._nn.SOFTMAX;
-        }
-
-        let modelInputs = [this._getTensorIdByName(graph.node[0].input[0])];
-        let modelOutputs = outputs;
-        this._model.identifyInputsAndOutputs(modelInputs, modelOutputs);
-      }
-
       this._model.addOperation(opCode, inputs, outputs);      
     }
+    return i-1;
   }
 }

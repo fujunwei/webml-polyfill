@@ -205,6 +205,7 @@ function printOnnxModel(model) {
       case 'BatchNormalization': {} break;
       case 'Add': {} break;
       case 'Mul': {} break;
+      case 'Sum': {} break;
       case 'Constant': {} break;
       case 'Reshape': {} break;
       case 'Gemm': {} break;

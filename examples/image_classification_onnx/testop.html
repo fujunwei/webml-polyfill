@@ -1,0 +1,43 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Onnx Importer Test</title>
+  </head>
+  <body>
+    <script src="../../dist/webml-polyfill.js"></script>
+    <script src="../util/base.js"></script>
+    <script>
+     window.onload = async function() {
+
+      const nn = navigator.ml.getNeuralNetworkContext();
+      let model_ = await nn.createModel();
+
+      let float32TensorType = {type: nn.TENSOR_FLOAT32, dimensions: [1,2]};
+
+      model_.addOperand(float32TensorType);  // input
+
+      model_.addOperand({type: nn.FLOAT32}); // beta
+      // model_.setOperandValue(1, new Float32Array([2,123,123,124,123]));
+      // model_.setOperandValue(1, new Float32Array([2,123]));
+      // model_.setOperandValue(1, new Float32Array([2]));
+      model_.setOperandValue(1, new Float32Array([1]));
+
+      model_.addOperand(float32TensorType); // output
+      model_.addOperation(nn.SOFTMAX, [0, 1], [2]);
+      model_.identifyInputsAndOutputs([0], [2]);
+
+      await model_.finish();
+      let compilation_ = await model_.createCompilation();
+      compilation_.setPreference({});
+      await compilation_.finish();
+      let execution = await compilation_.createExecution();
+      execution.setInput(0, new Float32Array([35, 24]));
+
+      let outputTensor = new Float32Array(2);
+      execution.setOutput(0, outputTensor);
+      let error = await execution.startCompute();
+      console.log(outputTensor);
+    }
+    </script>
+  </body>
+</html>

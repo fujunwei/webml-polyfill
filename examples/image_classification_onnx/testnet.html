@@ -1,0 +1,65 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Onnx Importer Test</title>
+  </head>
+  <body>
+    <script src="../../dist/webml-polyfill.js"></script>
+    <script src="../third_party/protobuf.min.js"></script>
+    <script src="../util/base.js"></script>
+    <script src="onnx.js"></script>
+    <script src="OnnxModelUtils.js"></script>
+    <script src="OnnxModelImporter.js"></script>
+    <script>
+     window.onload = async function() {
+      async function loadUrl(url) {
+        return new Promise(resolve => {
+          let request = new XMLHttpRequest();
+          request.open('GET', url, true);
+          request.responseType = 'arraybuffer';
+          request.onload = _ => {
+            if (request.readyState === 4 && request.status === 200)
+              resolve(new Uint8Array(request.response));
+          };
+          request.send();
+        });
+      }
+
+      async function loadTensor(tensorFile) {
+        let result = await loadUrl(tensorFile);
+        if (onnx.TensorProto.verify(result))
+          throw new Error(`Invalid tensor`);
+        let tensor = onnx.TensorProto.decode(result);
+        return getTensorData(tensor);
+      }
+
+      function almostEqual(a, b, episilon=1e-5) {
+        return Math.abs(a - b) < episilon;
+      }
+
+      const INPUT_TENSOR_SIZE = 224*224*3
+      const OUTPUT_TENSOR_SIZE = 1000;
+      const MODEL_FILE = './model/densenet.onnx';
+      const backend = 'WASM';
+
+      let input = await loadTensor('./test_set/densenet/test_data_set_1/input_0.pb');
+      let expectedOutput = await loadTensor('./test_set/densenet/test_data_set_1/output_0.pb');
+      let output = new Float32Array(OUTPUT_TENSOR_SIZE);
+
+      // load model
+      let result = await loadUrl(MODEL_FILE);
+      if (onnx.ModelProto.verify(result))
+        throw new Error(`Invalid model`);
+      let onnxModel = onnx.ModelProto.decode(result);  
+      let model = new OnnxModelImporter(onnxModel, backend);
+      await model.createCompiledModel();
+      await model.compute(input, output);
+      console.log(backend);
+      console.log('\nOutput:');
+      console.log(output);
+      console.log('\nExpected:');
+      console.log(expectedOutput);
+    }
+    </script>
+  </body>
+</html>

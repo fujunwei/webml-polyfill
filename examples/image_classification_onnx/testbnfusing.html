@@ -1,0 +1,78 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Onnx Importer Test</title>
+  </head>
+  <body>
+    <script src="../../dist/webml-polyfill.js"></script>
+    <script src="../third_party/protobuf.min.js"></script>
+    <script src="../util/base.js"></script>
+    <script src="onnx.js"></script>
+    <script src="OnnxModelUtils.js"></script>
+    <script src="SqueezeNet.js"></script>
+    <script>
+     window.onload = async function() {
+      async function loadUrl(url) {
+        return new Promise((resolve, reject) => {
+          let request = new XMLHttpRequest();
+          request.open('GET', url, true);
+          request.responseType = 'arraybuffer';
+          request.onload = _ => {
+            if (request.readyState === 4)
+              if (request.status === 200)
+                resolve(new Uint8Array(request.response));
+              else
+                reject(new Error('Failed to load ' + url));
+          };
+          request.send();
+        });
+      }
+      // const INPUT_TENSOR_SIZE = 2*2*3;
+      // // const OUTPUT_TENSOR_SIZE = 2*2*3;
+      const INPUT_TENSOR_SIZE = 16*3*256*256;
+      const OUTPUT_TENSOR_SIZE = 16*128*128*64;
+      // const INPUT_TENSOR_SIZE = 32*1*64*64;
+      // const OUTPUT_TENSOR_SIZE = 32*15*15*128;
+      // const INPUT_TENSOR_SIZE = 1*2*100;
+      // const OUTPUT_TENSOR_SIZE = 1*2*100;
+      // const INPUT_TENSOR_SIZE = 16*1*256*256;
+      // const OUTPUT_TENSOR_SIZE = 16*1*256*256;
+      // const OUTPUT_TENSOR_SIZE = 254*254*32
+      // const INPUT_TENSOR_SIZE = 36
+      // const OUTPUT_TENSOR_SIZE = 9;
+      const MODEL_FILE = './model/test1.onnx';
+      const backend = 'WebML';
+
+      let inputTensor = new Float32Array(INPUT_TENSOR_SIZE);
+      let outputTensor = new Float32Array(OUTPUT_TENSOR_SIZE);
+      for (let i = 0; i < inputTensor.length; ++i)
+        inputTensor[i] = 1;
+        // inputTensor[i] = Math.random();
+      inputTensor[0] = 5;
+
+      let result = await loadUrl(MODEL_FILE);
+      if (onnx.ModelProto.verify(result))
+        throw new Error(`Invalid model`);
+      let onnxModel = onnx.ModelProto.decode(result);
+      printOnnxModel(onnxModel);
+  
+      let model = new SqueezeNet(onnxModel, backend);
+      result = await model.createCompiledModel();
+      // console.log(`compilation result: ${result}`);
+      result = await model.compute(inputTensor, outputTensor);
+      // console.log(`compilation result: ${result}`);
+      console.log(outputTensor.reduce((x,y) => x + y));
+      // console.log(inputTensor);
+      console.log(outputTensor);
+      // for (let i = 0; i < inputTensor.length; i++) {
+      //   if (inputTensor[i] !== outputTensor[i]) {
+      //     console.log('error!!!!!!!!!');
+      //     break;
+      //   }
+          
+      // }
+      // console.log('correct');
+    }
+    </script>
+  </body>
+</html>
