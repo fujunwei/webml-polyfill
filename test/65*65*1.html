@@ -1,0 +1,154 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>WebML Polyfill | Mocha Tests</title>
+  </head>
+  <body>
+    <div id="mocha"></div>
+    <div> <input type="button" onclick="predict()" value="button"></div>
+    <div> <input type="file"  id="inputData"></div>
+    <textarea id="textarea" rows=100 cols=100></textarea>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <!--script src="https://cdnjs.cloudflare.com/ajax/libs/mocha/4.0.1/mocha.min.js"></script-->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mocha/5.2.0/mocha.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chai/4.1.2/chai.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.3/fetch.min.js"></script>
+    <script src="../dist/webml-polyfill.js"></script>
+    <script src="./utils.js"></script>
+    <script>
+      window.onload = setOptions;
+    </script>
+    <script>
+      mocha.setup('bdd');
+    </script>
+    <!--script src="./cts/test/V1_0/avg_pool_float_2.js"></script-->
+    <!--script src="./cts/test/V1_0/resize_bilinear.js"></script-->
+    <!--script src="./cts/test/V1_0/conv_float.js"></script-->
+    <!--script src="./cts/test/V1_0/add.js"></script-->
+    <!-- <script src="./cts/test/V1_0_plus/depthwise_conv_relu.js"></script> -->
+    <!--script src="./cts/test/V1_0/depthwise_conv2d_float_large_2.js"></script-->
+    <script>
+
+      // window.mochaFinish = false;
+      // mocha.globals(['jQuery']);
+      // mocha.run(function() {window.mochaFinish = true});
+
+
+var input_data, output_data, op3_output;
+      function predict() {
+
+describe('CTS', function() {
+        const assert = chai.assert;
+  const nn = navigator.ml.getNeuralNetworkContext();
+
+  it('check result for Depthwise conv relu example-1', async function() {
+    let model = await nn.createModel(options);
+    let operandIndex = 0;
+
+    let input_length = 65 * 65 * 1;
+    var new_input_data = new Float32Array(input_length);
+    for (var i = 0; i < input_length; i++) {
+        new_input_data[i] = input_data[i];
+    }
+    input_data = new_input_data;
+    console.log(input_data.length);
+
+    let op1_value = input_data;
+    let op2_expect = output_data;
+
+    let type2 = {type: nn.INT32};
+    let type0 = {type: nn.TENSOR_FLOAT32, dimensions: [1, 65, 65, 1]};
+    let type0_length = product(type0.dimensions);
+    let type1 = {type: nn.TENSOR_FLOAT32, dimensions: [1, 513, 513, 1]};
+    let type1_length = product(type1.dimensions);
+
+    let op1 = operandIndex++;
+    model.addOperand(type0);
+    let op2 = operandIndex++;
+    model.addOperand(type1);
+    let height = operandIndex++;
+    model.addOperand(type2);
+    let width = operandIndex++;
+    model.addOperand(type2);
+
+    model.setOperandValue(height, new Int32Array([513]));
+    model.setOperandValue(width, new Int32Array([513]));
+    model.addOperation(nn.RESIZE_BILINEAR, [op1, height, width], [op2]);
+
+    model.identifyInputsAndOutputs([op1], [op2]);
+    await model.finish();
+
+    let compilation = await model.createCompilation();
+    compilation.setPreference(getPreferenceCode(options.prefer));
+    await compilation.finish();
+
+    let execution = await compilation.createExecution();
+
+    let op1_input = new Float32Array(op1_value);
+    execution.setInput(0, op1_input);
+
+    let op2_output = new Float32Array(type1_length);
+    execution.setOutput(0, op2_output);
+
+    await execution.startCompute();
+
+    for (let i = 0; i < type1_length; ++i) {
+      if(!almostEqualCTS(op2_output[i], op2_expect[i])) {
+        console.log("index: " + i + " op2_output " + op2_output[i] + " op2_expect " + op2_expect[i]);
+        break;
+      }
+    }
+    
+    let sum = 0;
+      for (let i = 0; i < type1_length; i++) {
+        sum += Math.pow(op2_output[i] - op2_expect[i], 2);
+      }
+      console.log(`var: ${sum / type1_length}`);
+});
+});
+
+
+
+window.mochaFinish = false;
+      mocha.globals(['jQuery']);
+      mocha.run(function() {window.mochaFinish = true});
+}
+
+
+var i = 0;
+// <textarea id="textarea" rows=100 cols=100></textarea>
+// var textarea = document.getElementById("textarea")
+// textarea.value=
+inputData.addEventListener('change', function(e) {
+            var file = inputData.files[0];
+            var textType = /text.*/;
+
+            if (file.type.match(textType)) {
+                var reader = new FileReader();
+
+                reader.onload = function(e) {
+                    var text = reader.result;
+                    var arr = text.split(",");
+                    var file_data = new Float32Array(arr.length);
+                    for(j in arr) {
+                       var b = parseFloat(arr[j]);
+                       file_data[j] = b;
+                    }
+
+                   if (i == 0) {
+                      input_data = file_data;
+                    } else if (i == 1) {
+                      output_data = file_data;
+                    }
+                    i++;
+                   console.log(file_data.length);
+                }
+
+                reader.readAsText(file);    
+            } else {
+                fileDisplayArea.innerText = "File not supported!"
+            }
+        });
+    </script>
+  </body>
+</html>
