@@ -78,11 +78,6 @@ class TFliteModelImporter {
         let raw = buffer.dataArray();
         let data = new typedArray(raw.buffer, raw.byteOffset, raw.byteLength / typedArray.BYTES_PER_ELEMENT);
         this._setOperandValue(tensorId, data);
-        if (tensorId == 137) {
-          //console.debug(data);
-        } else if (tensorId == 136) {
-          //console.debug(data);
-        }
       }
     }
   }
@@ -92,8 +87,6 @@ class TFliteModelImporter {
     let operatorsLength = graph.operatorsLength();
     // for (let lastNode = 0; lastNode < graph.node.length; lastNode++) {
     for (let lastNode = 0; lastNode < operatorsLength; ++lastNode) {
-//      if (lastNode == 28) break;
-
       this._tensorIds = [];
       this._operands = [];
       this._operandIndex = 0;
@@ -197,8 +190,8 @@ class TFliteModelImporter {
       let operator = graph.operators(i);
       let opCode = this._rawModel.operatorCodes(operator.opcodeIndex()).builtinCode();
       let opType;
-      let inputs = Array.from(operator.inputsArray()).map(i => this._tensorIds[i]);
-      let outputs = Array.from(operator.outputsArray()).map(i => this._tensorIds[i]);
+      let inputs = Array.from(operator.inputsArray());
+      let outputs = Array.from(operator.outputsArray());
       switch (opCode) {
         case tflite.BuiltinOperator.ADD: {
           let options = operator.builtinOptions(new tflite.AddOptions());
@@ -216,42 +209,43 @@ class TFliteModelImporter {
             throw new Error(`Padding code ${options.padding()} is not supported.`);
           }
           inputs.push(this._addScalarInt32(paddingCode));
-          inputs.push(this._addScalarInt32(options.strideW()));
-          inputs.push(this._addScalarInt32(options.strideH()));
+          if (options.dilationWFactor() !== 1 || options.dilationWFactor() !== 1) {
+            inputs.push(this._addScalarInt32(options.dilationWFactor()));
+            inputs.push(this._addScalarInt32(options.dilationHFactor()));
+            opType = this._nn.ATROUS_CONV_2D;
+          } else {
+            inputs.push(this._addScalarInt32(options.strideW()));
+            inputs.push(this._addScalarInt32(options.strideH()));
+            opType = this._nn.CONV_2D;
+          }
           let fuseCode = FuseCodeMap.get(options.fusedActivationFunction());
           if (typeof fuseCode === 'undefined') {
             throw new Error(`Fuse code ${options.fusedActivationFunction()} is not supported.`);
           }
           inputs.push(this._addScalarInt32(fuseCode));
-          opType = this._nn.CONV_2D;
         } break;
         case tflite.BuiltinOperator.DEPTHWISE_CONV_2D: {
-	  /*let inShape = graph.tensors(inputs[0]).shapeArray();
-	  let outShape = graph.tensors(outputs[0]).shapeArray();
-	  if (inShape[0] == outShape[0] && inShape[1] == outShape[1] && inShape[2] == outShape[2] && inShape[3] == outShape[3]) {
-
-	  	this._tensorIds[outputs[0]] = this._tensorIds[inputs[0]];
-		continue;
-	  }*/
           let options = operator.builtinOptions(new tflite.DepthwiseConv2DOptions());
           let paddingCode = PaddingCodeMap.get(options.padding());
           if (typeof paddingCode === 'undefined') {
             throw new Error(`Padding code ${options.padding()} is not supported.`);
           }
           inputs.push(this._addScalarInt32(paddingCode));
-          inputs.push(this._addScalarInt32(options.strideW()));
-          inputs.push(this._addScalarInt32(options.strideH()));
+          if (options.dilationWFactor() !== 1 || options.dilationWFactor() !== 1) {
+            inputs.push(this._addScalarInt32(options.dilationWFactor()));
+            inputs.push(this._addScalarInt32(options.dilationHFactor()));
+            opType = this._nn.ATROUS_DEPTHWISE_CONV_2D;
+          } else {
+            inputs.push(this._addScalarInt32(options.strideW()));
+            inputs.push(this._addScalarInt32(options.strideH()));
+            opType = this._nn.DEPTHWISE_CONV_2D;
+          }
           inputs.push(this._addScalarInt32(options.depthMultiplier()));
           let fuseCode = FuseCodeMap.get(options.fusedActivationFunction());
           if (typeof fuseCode === 'undefined') {
             throw new Error(`Fuse code ${options.fusedActivationFunction()} is not supported.`);
           }
           inputs.push(this._addScalarInt32(fuseCode));
-          if (options.dilationWFactor() !== 1 || options.dilationWFactor() !== 1) {
-            inputs.push(this._addScalarInt32(options.dilationWFactor()));
-            inputs.push(this._addScalarInt32(options.dilationHFactor()));
-          }
-          opType = this._nn.DEPTHWISE_CONV_2D;
         } break;
         case tflite.BuiltinOperator.AVERAGE_POOL_2D: {
           let options = operator.builtinOptions(new tflite.Pool2DOptions());

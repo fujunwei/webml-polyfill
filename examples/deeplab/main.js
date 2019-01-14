@@ -40,9 +40,9 @@ const preferMap = {
 function main(camera) {
 
   const availableModels = [
+    deeplab513dilated,
     deeplab224,
     deeplab224dilated,
-    deeplab513dilated,
     deeplab513,
   ];
   const videoElement = document.getElementById('video');
