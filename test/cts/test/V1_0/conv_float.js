@@ -6,13 +6,14 @@ describe('CTS', function() {
     let model = await nn.createModel(options);
     let operandIndex = 0;
 
-    let op1_value = [1.0, 1.0, 1.0, 1.0, 0.5, 1.0, 1.0, 1.0, 1.0];
+    let op1_value = [1.0, 1.0, 1.0, 1.0, 0.5, 1.0, 1.0, 1.0, 1.0,
+                     0, 0, 1.0, 1.0, 0.5, 1.0, 1.0, 1.0, 1.0];
     let op4_expect = [0.875, 0.875, 0.875, 0.875];
 
     let type3 = {type: nn.INT32};
-    let type1 = {type: nn.TENSOR_FLOAT32, dimensions: [1, 2, 2, 1]};
+    let type1 = {type: nn.TENSOR_FLOAT32, dimensions: [2, 2, 2, 1]};
     let type1_length = product(type1.dimensions);
-    let type0 = {type: nn.TENSOR_FLOAT32, dimensions: [1, 3, 3, 1]};
+    let type0 = {type: nn.TENSOR_FLOAT32, dimensions: [2, 3, 3, 1]};
     let type0_length = product(type0.dimensions);
     let type2 = {type: nn.TENSOR_FLOAT32, dimensions: [1]};
     let type2_length = product(type2.dimensions);
@@ -32,7 +33,7 @@ describe('CTS', function() {
     let op4 = operandIndex++;
     model.addOperand(type1);
 
-    model.setOperandValue(op2, new Float32Array([0.25, 0.25, 0.25, 0.25]));
+    model.setOperandValue(op2, new Float32Array([0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25]));
     model.setOperandValue(op3, new Float32Array([0]));
     model.setOperandValue(pad0, new Int32Array([0]));
     model.setOperandValue(act, new Int32Array([0]));
