@@ -104,13 +104,58 @@ class Utils {
                                  this.canvasElement.width,
                                  this.canvasElement.height);
     this.prepareInputTensor(this.inputTensor, this.canvasElement);
-    let start = performance.now();
-    let result = await this.model.compute([this.inputTensor], [this.outputTensor]);
-    let elapsed = performance.now() - start;
-    return {
-      time: elapsed.toFixed(2),
-      classes: this.getTopClasses(this.outputTensor, this.labels, 3)
-    };
+
+    // let glGen = new OnnxModelImporter({
+    //   rawModel: this.rawModel,
+    //   backend: 'WebGL',
+    //   prefer: this.prefer
+    // }).layerIterator([this.inputTensor]);
+
+    let mlGen = new OnnxModelImporter({
+      rawModel: this.rawModel,
+      backend: 'WebML',
+      prefer: 'sustained',
+    }).layerIterator([this.inputTensor]);
+
+    var i = 0;
+    while (true) {
+      // let glnext = await glGen.next();
+      let mlnext = await mlGen.next();
+
+      if (mlnext.done)
+        break;
+
+      console.debug(`\n\n${mlnext.value.outputName}`);
+
+      // console.debug('\nWASM:');
+      // console.debug(wasmnext.value.tensor);
+
+      // console.debug('\nGL:');
+      // console.debug(glnext.value.tensor);
+
+      console.debug('\nML:');
+      console.debug(mlnext.value.tensor);
+
+
+      // let sum = 0;
+      // for (let i = 0; i < glnext.value.tensor.length; i) {
+      //   sum = Math.pow(glnext.value.tensor[i] - mlnext.value.tensor[i], 2);
+      // }
+      // console.debug(`var: ${sum / glnext.value.tensor.length}`);
+      //for (let i = 0; i < glnext.value.tensor.length; i) {
+      //  if (!this.almostEqual(glnext.value.tensor[i], mlnext.value.tensor[i])) {
+      //    console.debug(`Inconsistent at index ${i}, ${glnext.value.tensor[i]}, ${mlnext.value.tensor[i]}`);
+      //    break;
+      //}
+      //}
+    }
+    // let start = performance.now();
+    // let result = await this.model.compute([this.inputTensor], [this.outputTensor]);
+    // let elapsed = performance.now() - start;
+    // return {
+    //   time: elapsed.toFixed(2),
+    //   classes: this.getTopClasses(this.outputTensor, this.labels, 3)
+    // };
   }
 
   async loadModelAndLabels(modelUrl, labelsUrl) {
