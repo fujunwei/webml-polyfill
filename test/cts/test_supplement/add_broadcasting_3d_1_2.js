@@ -4,9 +4,9 @@ describe('CTS Supplement Test', function() {
 
   it('check result for Add broadcasting 1D-3D example/2', async function() {
     let model = await nn.createModel(options);
-    const type0 = {type: nn.TENSOR_FLOAT32, dimensions: [3, 2, 2]};
-    const type1 = {type: nn.TENSOR_FLOAT32, dimensions: [2]};
-    const type2 = {type: nn.TENSOR_FLOAT32, dimensions: [3, 2, 2]};
+    const type0 = {type: nn.TENSOR_FLOAT32, dimensions: [1, 3, 2, 2]};
+    const type1 = {type: nn.TENSOR_FLOAT32, dimensions: [1, 1, 2]};
+    const type2 = {type: nn.TENSOR_FLOAT32, dimensions: [1, 3, 2, 2]};
     const length = product(type2.dimensions);
 
     let operandIndex = 0;
